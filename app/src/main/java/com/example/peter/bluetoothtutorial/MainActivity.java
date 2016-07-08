@@ -18,9 +18,10 @@ import java.util.Set;
 
 public class MainActivity extends AppCompatActivity
 {
-    private BluetoothAdapter BA;
-    private Set<BluetoothDevice> pairedDevices;
-    ListView lv;
+    private BluetoothAdapter _bluetoothAdapter;
+
+    //support variables
+    private boolean _broadcastReceiverEnable = false;
 
     //----------------------------------------------------------------------------------------------
 
@@ -30,9 +31,9 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        BA = BluetoothAdapter.getDefaultAdapter();
-        lv = (ListView)findViewById(R.id.listView);
-    }
+        //initialize the bluetooth adapter
+        _bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    }//end onCreate
 
     //----------------------------------------------------------------------------------------------
 
@@ -41,7 +42,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void on(View view)
     {
-        if(!BA.isEnabled())
+        if(!_bluetoothAdapter.isEnabled())
         {
             Intent turnOn = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(turnOn, 0);
@@ -60,7 +61,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void off(View v)
     {
-        BA.disable();
+        _bluetoothAdapter.disable();
         Toast.makeText(getApplication(), "Turned off", Toast.LENGTH_LONG).show();
     }//end off function
 
@@ -82,16 +83,17 @@ public class MainActivity extends AppCompatActivity
     */
     public void list(View v)
     {
-        pairedDevices = BA.getBondedDevices();
-        ArrayList list = new ArrayList<>();
+        ListView __lstDevices = (ListView)findViewById(R.id.listView);
+        Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
+        ArrayList __list = new ArrayList<>();
 
-        for(BluetoothDevice bt : pairedDevices)
+        for(BluetoothDevice __bt : __pairedDevices)
         {
-            list.add(bt.getName());
-        }
+            __list.add(__bt.getName());
+        }//end for loop
 
-        final ArrayAdapter adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, list);
-        lv.setAdapter(adapter);
+        final ArrayAdapter adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, __list);
+        __lstDevices.setAdapter(adapter);
     }//end function list
 
     //----------------------------------------------------------------------------------------------
@@ -110,25 +112,61 @@ public class MainActivity extends AppCompatActivity
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Toast.makeText(getApplicationContext(), "Device discovered: " + device.getName() + "\n" + device.getAddress(), Toast.LENGTH_LONG).show();
                 //discoveredDevices.add(device.getName() + "\n" + device.getAddress());
-            }
+            }//end if
         }
-    };
+    };//end BroadcastReceiver
+
+    //----------------------------------------------------------------------------------------------
 
     /*
-    *   start searching for new devices
+    *   register Broadcast Receiver
     */
-    public void startBroadcastReceiver(View v)
+    public void registerBroadcastReceiver()
     {
         //Register the BroadcastReceiver
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);        //must unregister during onDestroy
-        BA.startDiscovery();
-    }//end method startBroadcastReceiver
+        IntentFilter __filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mReceiver, __filter);        //must unregister during onDestroy
+        _broadcastReceiverEnable = true;
+    }//end function startBroadcastReceiver
 
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *   start discovery for nearby devices
+    */
+    public void startDiscovery(View v)
+    {
+        //check that the broadcast receiver is started
+        if(!_broadcastReceiverEnable)
+        {
+            //broadcast receiver is not registered so we register it first
+            registerBroadcastReceiver();
+        }//end if
+
+        //start searching for bluetooth devices
+        _bluetoothAdapter.startDiscovery();
+    }//end function startDiscovery
+
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *  ensuring resources are closed before app closes
+    */
     @Override
-    protected void onDestroy() {
+    protected void onDestroy()
+    {
+        //unregister broadcast receiver if enabled
+        if(_broadcastReceiverEnable)
+        {
+            unregisterReceiver(mReceiver);
+            _broadcastReceiverEnable = false;
+        }//end if
+
+        //ensure that the bluetooth adapter stopped searching for devices
+        _bluetoothAdapter.cancelDiscovery();
+
         super.onDestroy();
-        unregisterReceiver(mReceiver);
-        BA.cancelDiscovery();
-    }
+    }//end function onDestroy
+
+    //----------------------------------------------------------------------------------------------
 }//end Main Activity
