@@ -8,7 +8,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.ContextMenu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -42,6 +45,7 @@ public class MainActivity extends AppCompatActivity
         _listDiscoveredDevices = new ArrayList();
         _listAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, _listDiscoveredDevices);
         __lstDevices.setAdapter(_listAdapter);
+        __lstDevices.setOnCreateContextMenuListener(this);
     }//end onCreate
 
     //----------------------------------------------------------------------------------------------
@@ -70,8 +74,15 @@ public class MainActivity extends AppCompatActivity
     */
     public void off(View v)
     {
-        _bluetoothAdapter.disable();
-        Toast.makeText(getApplication(), "Turned off", Toast.LENGTH_LONG).show();
+        if(_bluetoothAdapter.isEnabled())
+        {
+            _bluetoothAdapter.disable();
+            Toast.makeText(getApplication(), "Turned off", Toast.LENGTH_LONG).show();
+        }//end if
+        else
+        {
+            Toast.makeText(getApplication(), "Already off", Toast.LENGTH_LONG).show();
+        }//end else
     }//end off function
 
     //----------------------------------------------------------------------------------------------
@@ -81,8 +92,15 @@ public class MainActivity extends AppCompatActivity
     */
     public void visible(View v)
     {
-        Intent getVisible = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        startActivityForResult(getVisible, 0);
+        if(_bluetoothAdapter.isEnabled())
+        {
+            Intent getVisible = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+            startActivityForResult(getVisible, 0);
+        }//end if
+        else
+        {
+            Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+        }//end else
     }//end function visible
 
     //----------------------------------------------------------------------------------------------
@@ -92,17 +110,24 @@ public class MainActivity extends AppCompatActivity
     */
     public void list(View v)
     {
-        _listDiscoveredDevices.clear();
-        _listAdapter.notifyDataSetChanged();
-
-        Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
-
-        for(BluetoothDevice __bt : __pairedDevices)
+        if(_bluetoothAdapter.isEnabled())
         {
-            _listDiscoveredDevices.add(__bt.getName());
-        }//end for loop
+            _listDiscoveredDevices.clear();
+            _listAdapter.notifyDataSetChanged();
 
-        _listAdapter.notifyDataSetChanged();
+            Toast.makeText(getApplicationContext(), "Listing paired devices...", Toast.LENGTH_LONG).show();
+            Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
+
+            for (BluetoothDevice __bt : __pairedDevices) {
+                _listDiscoveredDevices.add(__bt.getName());
+            }//end for loop
+
+            _listAdapter.notifyDataSetChanged();
+        }//end if
+        else
+        {
+            Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+        }//end else
     }//end function list
 
     //----------------------------------------------------------------------------------------------
@@ -119,7 +144,6 @@ public class MainActivity extends AppCompatActivity
             {
                 //get the bluetooth device object from the intent
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Toast.makeText(getApplicationContext(), "Device discovered: " + device.getName() + "\n" + device.getAddress(), Toast.LENGTH_LONG).show();
                 _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
                 _listAdapter.notifyDataSetChanged();
             }//end if
@@ -146,19 +170,28 @@ public class MainActivity extends AppCompatActivity
     */
     public void startDiscovery(View v)
     {
-        //check that the broadcast receiver is started
-        if(!_broadcastReceiverEnable)
+        if(_bluetoothAdapter.isEnabled())
         {
-            //broadcast receiver is not registered so we register it first
-            registerBroadcastReceiver();
+            //check that the broadcast receiver is started
+            if(!_broadcastReceiverEnable)
+            {
+                //broadcast receiver is not registered so we register it first
+                registerBroadcastReceiver();
+            }//end if
+
+            //clear the list
+            _listDiscoveredDevices.clear();
+            _listAdapter.notifyDataSetChanged();
+
+            Toast.makeText(getApplicationContext(), "Searching for devices...", Toast.LENGTH_LONG).show();
+
+            //start searching for bluetooth devices
+            _bluetoothAdapter.startDiscovery();
         }//end if
-
-        //clear the list
-        _listDiscoveredDevices.clear();
-        _listAdapter.notifyDataSetChanged();
-
-        //start searching for bluetooth devices
-        _bluetoothAdapter.startDiscovery();
+        else
+        {
+            Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+        }//end else
     }//end function startDiscovery
 
     //----------------------------------------------------------------------------------------------
@@ -194,4 +227,36 @@ public class MainActivity extends AppCompatActivity
     }//end function onDestroy
 
     //----------------------------------------------------------------------------------------------
+
+    /*
+    *   function to create a menu when a long press is detected on the list view
+    */
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
+    {
+        super.onCreateContextMenu(menu, v, menuInfo);
+        menu.add(0,0,0,"Pair");
+    }//end function onCreateContextMenu
+
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *   action to be performed when an option is selected
+    */
+    @Override
+    public boolean onContextItemSelected(MenuItem item)
+    {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        int position = info.position;
+
+        switch (item.getItemId())
+        {
+            case 0:
+                stopDiscovery();
+                Toast.makeText(getApplicationContext(), "pairing selected", Toast.LENGTH_LONG).show();
+                break;
+        }//end switch
+
+        return false;
+    }//end function onContextItemSelected
 }//end Main Activity
