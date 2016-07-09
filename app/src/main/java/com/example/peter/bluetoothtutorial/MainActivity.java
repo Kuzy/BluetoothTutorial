@@ -23,6 +23,10 @@ public class MainActivity extends AppCompatActivity
 {
     private BluetoothAdapter _bluetoothAdapter;
 
+    //collection of bluetooth device objects
+    private ArrayList _bluetoothDevices;
+
+    //for displaying the list of devices to the user
     private ArrayList _listDiscoveredDevices;
     private ArrayAdapter _listAdapter;
 
@@ -39,6 +43,8 @@ public class MainActivity extends AppCompatActivity
 
         //initialize the bluetooth adapter
         _bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        _bluetoothDevices = new ArrayList();
 
         //prepare list for displaying devices found
         ListView __lstDevices = (ListView)findViewById(R.id.listView);
@@ -114,12 +120,14 @@ public class MainActivity extends AppCompatActivity
         {
             _listDiscoveredDevices.clear();
             _listAdapter.notifyDataSetChanged();
+            _bluetoothDevices.clear();
 
             Toast.makeText(getApplicationContext(), "Listing paired devices...", Toast.LENGTH_LONG).show();
             Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
 
             for (BluetoothDevice __bt : __pairedDevices) {
                 _listDiscoveredDevices.add(__bt.getName());
+                _bluetoothDevices.add(__bt);
             }//end for loop
 
             _listAdapter.notifyDataSetChanged();
@@ -146,6 +154,7 @@ public class MainActivity extends AppCompatActivity
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
                 _listAdapter.notifyDataSetChanged();
+                _bluetoothDevices.add(device);
             }//end if
         }
     };//end BroadcastReceiver
@@ -182,6 +191,7 @@ public class MainActivity extends AppCompatActivity
             //clear the list
             _listDiscoveredDevices.clear();
             _listAdapter.notifyDataSetChanged();
+            _bluetoothDevices.clear();
 
             Toast.makeText(getApplicationContext(), "Searching for devices...", Toast.LENGTH_LONG).show();
 
