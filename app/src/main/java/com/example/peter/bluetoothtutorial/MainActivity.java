@@ -419,14 +419,18 @@ public class MainActivity extends AppCompatActivity
                 {
                     //Read from the InputStream
                     bytes = _inputStream.read(buffer);
+
+                    //converting array of bytes into string
+                    String readMessage = new String(buffer, 0, bytes);
+
                     //Send the obtained bytes to the UI activity
-                    _handler.obtainMessage(MESSAGE_RECEIVED, bytes, -1, buffer).sendToTarget();
-                }
+                    _handler.obtainMessage(MESSAGE_RECEIVED, readMessage).sendToTarget();
+                }//end try
                 catch(IOException e)
                 {
                     break;
-                }
-            }
+                }//end catch
+            }//end while loop
         }//end function run
 
         public void write(byte[] __bytes)
