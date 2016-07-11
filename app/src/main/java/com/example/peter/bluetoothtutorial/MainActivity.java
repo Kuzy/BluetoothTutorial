@@ -44,7 +44,12 @@ public class MainActivity extends AppCompatActivity
     //Handler to get data from other threads
     private Handler _handler = null;
 
+    //constant integer value to represent receiving a message from another device
     private final int MESSAGE_RECEIVED = 1;
+
+    //device that is connected
+    private ConnectThread _connectDevice = null;
+
     //----------------------------------------------------------------------------------------------
 
     @Override
@@ -57,15 +62,26 @@ public class MainActivity extends AppCompatActivity
         _bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         //initialize ArrayList for holding bluetooth objects
-        _bluetoothDevices = new ArrayList();
+        _bluetoothDevices = new ArrayList<>();
 
-        //prepare list for displaying devices found
-        ListView __lstDevices = (ListView)findViewById(R.id.listView);
-        _listDiscoveredDevices = new ArrayList();
-        _listAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, _listDiscoveredDevices);
-        __lstDevices.setAdapter(_listAdapter);
-        __lstDevices.setOnCreateContextMenuListener(this);
 
+        //possibility of getting null pointer exception
+        try
+        {
+            //prepare list for displaying devices found
+            ListView __lstDevices = (ListView)findViewById(R.id.listView);
+            _listDiscoveredDevices = new ArrayList<>();
+            _listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, _listDiscoveredDevices);
+            assert __lstDevices != null;
+            __lstDevices.setAdapter(_listAdapter);
+            __lstDevices.setOnCreateContextMenuListener(this);
+        }//end try
+        catch (NullPointerException npe)
+        {
+            npe.printStackTrace();
+        }//end catch
+
+        //initialize handler and make it do something when another thread passes a message back
         _handler = new Handler(Looper.getMainLooper()){
             @Override
             public void handleMessage(Message __inputMessage)
@@ -89,6 +105,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void on(View view)
     {
+        //check if bluetooth adapter is turned on
         if(!_bluetoothAdapter.isEnabled())
         {
             Intent turnOn = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -108,6 +125,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void off(View v)
     {
+        //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
         {
             _bluetoothAdapter.disable();
@@ -126,6 +144,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void visible(View v)
     {
+        //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
         {
             Intent getVisible = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -144,8 +163,10 @@ public class MainActivity extends AppCompatActivity
     */
     public void list(View v)
     {
+        //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
         {
+            //clear ArrayLists
             _listDiscoveredDevices.clear();
             _listAdapter.notifyDataSetChanged();
             _bluetoothDevices.clear();
@@ -153,6 +174,7 @@ public class MainActivity extends AppCompatActivity
             Toast.makeText(getApplicationContext(), "Listing paired devices...", Toast.LENGTH_LONG).show();
             Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
 
+            //iterate through all the Bluetooth devices paired with
             for (BluetoothDevice __bt : __pairedDevices) {
                 _listDiscoveredDevices.add(__bt.getName());
                 _bluetoothDevices.add(__bt);
@@ -207,6 +229,7 @@ public class MainActivity extends AppCompatActivity
     */
     public void startDiscovery(View v)
     {
+        //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
         {
             //check that the broadcast receiver is started
@@ -266,6 +289,15 @@ public class MainActivity extends AppCompatActivity
 
     //----------------------------------------------------------------------------------------------
 
+    /*Call this function to cancel connection with the device*/
+    public void closeConnection(View v)
+    {
+        _connectDevice.cancel();
+        _connectDevice = null;  //destroy reference to the device
+    }//end function closeConnection
+
+    //----------------------------------------------------------------------------------------------
+
     /*
     *   function to create a menu when a long press is detected on the list view
     */
@@ -273,7 +305,7 @@ public class MainActivity extends AppCompatActivity
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
     {
         super.onCreateContextMenu(menu, v, menuInfo);
-        menu.add(0,0,0,"Pair");
+        menu.add(0,0,0,"Connect");
     }//end function onCreateContextMenu
 
     //----------------------------------------------------------------------------------------------
@@ -291,10 +323,9 @@ public class MainActivity extends AppCompatActivity
         {
             case 0:
                 stopDiscovery();
-                Toast.makeText(getApplicationContext(), "pairing selected", Toast.LENGTH_SHORT).show();
-                Toast.makeText(getApplicationContext(), "pairing with " + _bluetoothDevices.get(position).getName(), Toast.LENGTH_SHORT).show();
-                ConnectThread connectThread = new ConnectThread(_bluetoothDevices.get(position));
-                connectThread.start();
+                Toast.makeText(getApplicationContext(), "connecting to " + _bluetoothDevices.get(position).getName(), Toast.LENGTH_SHORT).show();
+                _connectDevice = new ConnectThread(_bluetoothDevices.get(position));
+                _connectDevice.start();
                 break;
         }//end switch
 
@@ -304,32 +335,41 @@ public class MainActivity extends AppCompatActivity
     //----------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------
 
+    /*
+    *   Class that initiates the connection to the bluetooth device
+    */
     private class ConnectThread extends Thread
     {
-        private final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
-        private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
+        //default Bluetooth UUID is being used
+        private final UUID _UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+
+        //defining connection variables
+        private final BluetoothSocket _socket;
+
+        //the object that will manage communication with the bluetooth device
+        ConnectedThread _managedCommunication;
 
         public ConnectThread(BluetoothDevice device)
         {
             //Use a temporary object that is later assigned to mmSocket,
             //because mmSocket is final
             BluetoothSocket tmp = null;
-            mmDevice = device;
 
             //get a BluetoothSocket to connect with the given BluetoothDevice
             try
             {
                 // MY_UUID is the app's UUID string, also used by the server code
-                tmp = device.createRfcommSocketToServiceRecord(MY_UUID);
+                tmp = device.createRfcommSocketToServiceRecord(_UUID);
             }//end try
             catch(IOException e)
             {
-
+                e.printStackTrace();
             }//end catch
 
-            mmSocket = tmp;
+            _socket = tmp;
         }//end constructor
+
+        //------------------------------------------------------------------------------------------
 
         public void run()
         {
@@ -340,7 +380,7 @@ public class MainActivity extends AppCompatActivity
             {
                 //Connect the device through the socket. This will block
                 //until it succeeds or throws an exception
-                mmSocket.connect();
+                _socket.connect();
             }//end try
             catch (IOException connectException)
             {
@@ -348,31 +388,41 @@ public class MainActivity extends AppCompatActivity
                 try
                 {
                     Toast.makeText(getApplicationContext(), "Failed to connect!", Toast.LENGTH_SHORT).show();
-                    mmSocket.close();
+                    _socket.close();
                 }//end try
                 catch (IOException closeException)
                 {
-
+                    closeException.printStackTrace();
                 }//end catch
 
                 return;
             }//end catch
 
             //manage connection in a separate thread
-            ConnectedThread manage = new ConnectedThread(mmSocket);
-            manage.start();
+            _managedCommunication = new ConnectedThread(_socket);
+            _managedCommunication.start();
         }//end method run
 
-        /* will cancel an in-progress connection and close the socket */
+        //------------------------------------------------------------------------------------------
+
+        //uses this method to invoke write method for the connection
+        public void send(String message)
+        {
+            _managedCommunication.write(message.getBytes());
+        }//end method send
+
+        //------------------------------------------------------------------------------------------
+
+        // will cancel an in-progress connection and close the socket
         public void cancel()
         {
             try
             {
-                mmSocket.close();
+                _socket.close();
             }//end try
             catch (IOException e)
             {
-
+                e.printStackTrace();
             }//end catch
         }//end method cancel
     }//end class ConnectThread
@@ -380,15 +430,16 @@ public class MainActivity extends AppCompatActivity
     //----------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------
 
+    /*
+    *   class that handles communication between bluetooth devices
+    */
     private class ConnectedThread extends Thread
     {
-        private final BluetoothSocket _socket;
         private final InputStream _inputStream;
         private final OutputStream _outputStream;
 
         public ConnectedThread(BluetoothSocket __socket)
         {
-            _socket = __socket;
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
 
@@ -400,12 +451,14 @@ public class MainActivity extends AppCompatActivity
             }//end try
             catch (IOException e)
             {
-
+                e.printStackTrace();
             }//end catch
 
             _inputStream = tmpIn;
             _outputStream = tmpOut;
         }//end constructor
+
+        //------------------------------------------------------------------------------------------
 
         public void run()
         {
@@ -433,6 +486,9 @@ public class MainActivity extends AppCompatActivity
             }//end while loop
         }//end function run
 
+        //------------------------------------------------------------------------------------------
+
+        //writes bytes to the output stream
         public void write(byte[] __bytes)
         {
             try
@@ -441,20 +497,8 @@ public class MainActivity extends AppCompatActivity
             }//end try
             catch (IOException e)
             {
-
+                e.printStackTrace();
             }//end catch
         }//end function write
-
-        public void cancel()
-        {
-            try
-            {
-                _socket.close();
-            }//end try
-            catch (IOException e)
-            {
-
-            }//end catch
-        }//end function cancel
     }//end class ConnectedThread
 }//end Main Activity
