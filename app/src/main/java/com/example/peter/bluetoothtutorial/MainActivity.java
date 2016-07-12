@@ -13,6 +13,7 @@ import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.ContextMenu;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
@@ -89,9 +90,10 @@ public class MainActivity extends AppCompatActivity
                 switch (__inputMessage.what)
                 {
                     case MESSAGE_RECEIVED:
-                        Toast.makeText(getApplicationContext(), "" + __inputMessage.obj, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), __inputMessage.obj.toString(), Toast.LENGTH_SHORT).show();
                         break;
                     default:
+                        //let the program handle any other messages passed
                         super.handleMessage(__inputMessage);
                 }//end switch
             }//end function handleMessage
@@ -103,18 +105,27 @@ public class MainActivity extends AppCompatActivity
     /*
     *   Turn on Bluetooth
     */
-    public void on(View view)
+    public void on()
     {
-        //check if bluetooth adapter is turned on
-        if(!_bluetoothAdapter.isEnabled())
+        //check if bluetooth adapter exists on the device
+
+        if(_bluetoothAdapter != null)
         {
-            Intent turnOn = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(turnOn, 0);
-            Toast.makeText(getApplicationContext(), "Turned On", Toast.LENGTH_LONG).show();
+            //check if bluetooth adapter is turned on
+            if(!_bluetoothAdapter.isEnabled())
+            {
+                Intent turnOn = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(turnOn, 0);
+                Toast.makeText(getApplicationContext(), "Turned On", Toast.LENGTH_LONG).show();
+            }//end if
+            else
+            {
+                Toast.makeText(getApplicationContext(), "Already on", Toast.LENGTH_LONG).show();
+            }//end else
         }//end if
         else
         {
-            Toast.makeText(getApplicationContext(), "Already on", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Bluetooth not supported on this device!", Toast.LENGTH_LONG).show();
         }//end else
     }//end on function
 
@@ -123,7 +134,7 @@ public class MainActivity extends AppCompatActivity
     /*
     *   Turn off Bluetooth
     */
-    public void off(View v)
+    public void off()
     {
         //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
@@ -142,7 +153,7 @@ public class MainActivity extends AppCompatActivity
     /*
     *   Make device visible
     */
-    public void visible(View v)
+    public void visible()
     {
         //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
@@ -161,7 +172,7 @@ public class MainActivity extends AppCompatActivity
     /*
     *   lists all paired bluetooth devices
     */
-    public void list(View v)
+    public void list()
     {
         //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
@@ -227,7 +238,7 @@ public class MainActivity extends AppCompatActivity
     /*
     *   start discovery for nearby devices
     */
-    public void startDiscovery(View v)
+    public void startDiscovery()
     {
         //check if bluetooth adapter is turned on
         if(_bluetoothAdapter.isEnabled())
@@ -331,6 +342,59 @@ public class MainActivity extends AppCompatActivity
 
         return false;
     }//end function onContextItemSelected
+
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *   displays a menu list when the menu button is pressed on the device
+    */
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu)
+    {
+        menu.add(0,0,0,"Turn On Bluetooth");
+        menu.add(0,1,1,"Turn Off Bluetooth");
+        menu.add(0,2,2,"Search for devices");
+        menu.add(0,3,3,"Display paired devices");
+        menu.add(0,4,4,"Make Discoverable");
+        return true;
+    }//end function onCreateOptionsMenu
+
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *   when an option is selected in the menu, this will process the action
+    */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item)
+    {
+        boolean result = false;
+
+        switch(item.getItemId())
+        {
+            case 0:
+                on();
+                result = true;
+                break;
+            case 1:
+                off();
+                result = true;
+                break;
+            case 2:
+                startDiscovery();
+                result = true;
+                break;
+            case 3:
+                list();
+                result = true;
+                break;
+            case 4:
+                visible();
+                result = true;
+                break;
+        }//end switch
+
+        return result;
+    }//end function onOptionsItemSelected
 
     //----------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------
