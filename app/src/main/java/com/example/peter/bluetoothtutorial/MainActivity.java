@@ -263,6 +263,7 @@ public class MainActivity extends AppCompatActivity
             //process the incoming request
             switch (requestCode)
             {
+                //connect a given device
                 case 1:
                     BluetoothDevice __connectDevice = (BluetoothDevice) data.getExtras().get("device");
                     _connectedBluetoothDevice.add(__connectDevice);
@@ -270,6 +271,7 @@ public class MainActivity extends AppCompatActivity
                     __newDevice.start();
                     _connectDevices.add(__newDevice);
                     break;
+                //disconnect a device
                 case 2:
                     BluetoothDevice __disconnectDevice = (BluetoothDevice) data.getExtras().get("device");
                     Toast.makeText(getApplicationContext(), "Device to be disconnected: " + __disconnectDevice.getName(), Toast.LENGTH_SHORT).show();
@@ -288,6 +290,36 @@ public class MainActivity extends AppCompatActivity
             }//end switch
         }//end if
     }//end onActivityResult
+
+    //----------------------------------------------------------------------------------------------
+
+    /*
+    *   Method called when the activity is being destroyed
+    */
+    @Override
+    protected void onDestroy()
+    {
+        //loop through all the connected devices and disconnect
+        for(ConnectThread __disconnectDevice : _connectDevices)
+        {
+            try
+            {
+                __disconnectDevice.cancel();
+            }//end try
+            catch (Exception e)
+            {
+                //nothing to do about it
+            }//end catch
+        }//end for loop
+
+        //destroying references to objects to make sure that memory is released when app closes
+        _connectDevices.clear();
+        _connectedBluetoothDevice.clear();
+        _bluetoothAdapter = null;
+        _handler = null;
+
+        super.onDestroy();
+    }//end method onDestroy
 
     //----------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------

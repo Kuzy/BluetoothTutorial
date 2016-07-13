@@ -17,9 +17,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 public class DeviceListActivity extends AppCompatActivity
@@ -206,27 +204,46 @@ public class DeviceListActivity extends AppCompatActivity
 
     //----------------------------------------------------------------------------------------------
 
+    /*
+    *   Method to show the current devices that are connected
+    */
     public void showConnections()
     {
-        ArrayList<BluetoothDevice> devices = (ArrayList<BluetoothDevice>) getIntent().getExtras().get("devices");
-
-        for(BluetoothDevice device:devices)
+        try
         {
-            _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
-            _bluetoothDevices.add(device);
-        }//end for loop
+            ArrayList<BluetoothDevice> devices = (ArrayList<BluetoothDevice>) getIntent().getExtras().get("devices");
 
-        _listAdapter.notifyDataSetChanged();
+            for(BluetoothDevice device:devices)
+            {
+                _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
+                _bluetoothDevices.add(device);
+            }//end for loop
+
+            _listAdapter.notifyDataSetChanged();
+        }//end try
+        catch (NullPointerException npe)
+        {
+            Toast.makeText(getApplicationContext(), "Null Pointer Exception: " + npe, Toast.LENGTH_LONG).show();
+        }//end catch
+        catch(Exception e)
+        {
+            Toast.makeText(getApplicationContext(), "Exception: " + e, Toast.LENGTH_LONG).show();
+        }//end catch
     }//end function showConnections
 
     //----------------------------------------------------------------------------------------------
 
     /*
-    *  ensuring resources are closed before app closes
+    *  ensuring resources are closed before activity closes
     */
     @Override
     protected void onDestroy()
     {
+        _currentInstruction = 0;
+        _bluetoothAdapter = null;
+        _bluetoothDevices.clear();
+        _listAdapter.clear();
+        _listDiscoveredDevices.clear();
         stopDiscovery();
         super.onDestroy();
     }//end function onDestroy
