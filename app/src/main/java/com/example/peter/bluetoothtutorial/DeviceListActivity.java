@@ -17,14 +17,17 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class DeviceListActivity extends AppCompatActivity
 {
     //Constants to represent instruction
-    private final int SEARCH = 1, PAIRED = 2;
+    private final int SEARCH = 1, PAIRED = 2, CONNECTED = 3;
 
+    //bluetooth adapter to handle requests
     private BluetoothAdapter _bluetoothAdapter;
 
     //collection of bluetooth device objects
@@ -36,6 +39,7 @@ public class DeviceListActivity extends AppCompatActivity
 
     //support variables
     private boolean _broadcastReceiverEnable = false;
+    private int _currentInstruction = 0;
 
     //----------------------------------------------------------------------------------------------
 
@@ -78,16 +82,19 @@ public class DeviceListActivity extends AppCompatActivity
         }//end catch
 
         //get instruction passed on from main activity
-        int __instruction = getIntent().getExtras().getInt("instruction");
+        _currentInstruction = getIntent().getExtras().getInt("instruction");
 
         //depending on the instruction we execute a different command
-        switch (__instruction)
+        switch (_currentInstruction)
         {
             case SEARCH:
                 startDiscovery();
                 break;
             case PAIRED:
                 list();
+                break;
+            case CONNECTED:
+                showConnections();
                 break;
         }//end switch
     }//end function onCreate
@@ -114,8 +121,6 @@ public class DeviceListActivity extends AppCompatActivity
         }//end for loop
 
         _listAdapter.notifyDataSetChanged();
-
-
     }//end function list
 
     //----------------------------------------------------------------------------------------------
@@ -201,6 +206,21 @@ public class DeviceListActivity extends AppCompatActivity
 
     //----------------------------------------------------------------------------------------------
 
+    public void showConnections()
+    {
+        ArrayList<BluetoothDevice> devices = (ArrayList<BluetoothDevice>) getIntent().getExtras().get("devices");
+
+        for(BluetoothDevice device:devices)
+        {
+            _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
+            _bluetoothDevices.add(device);
+        }//end for loop
+
+        _listAdapter.notifyDataSetChanged();
+    }//end function showConnections
+
+    //----------------------------------------------------------------------------------------------
+
     /*
     *  ensuring resources are closed before app closes
     */
@@ -220,7 +240,15 @@ public class DeviceListActivity extends AppCompatActivity
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
     {
         super.onCreateContextMenu(menu, v, menuInfo);
-        menu.add(0,0,0,"Connect");
+
+        switch(_currentInstruction)
+        {
+            case CONNECTED:
+                menu.add(0,1,1, "Disconnect");
+                break;
+            default:
+                menu.add(0,0,0,"Connect");
+        }//end switch
     }//end function onCreateContextMenu
 
     //----------------------------------------------------------------------------------------------
@@ -241,7 +269,11 @@ public class DeviceListActivity extends AppCompatActivity
                 Toast.makeText(getApplicationContext(), "connecting to " + _bluetoothDevices.get(position).getName(), Toast.LENGTH_SHORT).show();
                 setResult(RESULT_OK, new Intent().putExtra("device", _bluetoothDevices.get(position)));
                 finish();
-
+                break;
+            case 1:
+                Toast.makeText(getApplicationContext(), "disconnecting from " + _bluetoothDevices.get(position).getName(), Toast.LENGTH_SHORT).show();
+                setResult(RESULT_OK, new Intent().putExtra("device", _bluetoothDevices.get(position)));
+                finish();
                 break;
         }//end switch
 

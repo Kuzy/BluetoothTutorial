@@ -19,6 +19,7 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity
@@ -32,8 +33,9 @@ public class MainActivity extends AppCompatActivity
     private final int MESSAGE_RECEIVED = 1;
 
     //device that is connected
-    private ConnectThread _connectDevice = null;
+    private ArrayList<ConnectThread> _connectDevices;
 
+    private ArrayList<BluetoothDevice> _connectedBluetoothDevice;
     //----------------------------------------------------------------------------------------------
 
     @Override
@@ -56,13 +58,15 @@ public class MainActivity extends AppCompatActivity
                 switch (__inputMessage.what)
                 {
                     case MESSAGE_RECEIVED:
-                        Toast.makeText(getApplicationContext(), __inputMessage.obj.toString(), Toast.LENGTH_SHORT).show();
+                        //append the message to the text view
                         lblMessage.append(__inputMessage.obj.toString() + "\n");
+
+                        //make the scrollView move down to the last item
                         scrollView.post(new Runnable() {
                             @Override
                             public void run() {
                                 scrollView.fullScroll(View.FOCUS_DOWN);
-                            }
+                            }//end function run
                         });
                         break;
                     default:
@@ -71,6 +75,9 @@ public class MainActivity extends AppCompatActivity
                 }//end switch
             }//end function handleMessage
         };//end Handler
+
+        _connectDevices = new ArrayList<>();
+        _connectedBluetoothDevice = new ArrayList<>();
     }//end onCreate
 
     //----------------------------------------------------------------------------------------------
@@ -143,10 +150,13 @@ public class MainActivity extends AppCompatActivity
     //----------------------------------------------------------------------------------------------
 
     /*Call this function to cancel connection with the device*/
-    public void closeConnection(View v)
+    public void closeConnection(ConnectThread closeDevice)
     {
-        _connectDevice.cancel();
-        _connectDevice = null;  //destroy reference to the device
+        if(_connectDevices.contains(closeDevice))
+        {
+            closeDevice.cancel();
+            _connectDevices.remove(closeDevice);
+        }//end if
     }//end function closeConnection
 
     //----------------------------------------------------------------------------------------------
@@ -161,7 +171,8 @@ public class MainActivity extends AppCompatActivity
         menu.add(0,1,1,"Turn Off Bluetooth");
         menu.add(0,2,2,"Search for devices");
         menu.add(0,3,3,"Display paired devices");
-        menu.add(0,4,4,"Make Discoverable");
+        menu.add(0,4,4,"Show connected devices");
+        menu.add(0,5,5, "Make Discoverable");
         return true;
     }//end function onCreateOptionsMenu
 
@@ -209,13 +220,28 @@ public class MainActivity extends AppCompatActivity
                     listIntent.putExtra("instruction", 2);
                     startActivityForResult(listIntent, 1);
                     result = true;
-                    break;
                 }//end if
                 else
                 {
                     Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
                 }//end else
-            case 4:           //make device visible
+                break;
+            case 4:
+                //check if bluetooth adapter is turned on
+                if(_bluetoothAdapter.isEnabled())
+                {
+                    Intent __connectedDevicesIntent = new Intent(this, DeviceListActivity.class);
+                    __connectedDevicesIntent.putExtra("instruction", 3);
+                    __connectedDevicesIntent.putExtra("devices", _connectedBluetoothDevice);
+                    startActivityForResult(__connectedDevicesIntent, 2);
+                    result = true;
+                }//end if
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+                }//end else
+                break;
+            case 5:           //make device visible
                 visible();
                 result = true;
                 break;
@@ -226,6 +252,9 @@ public class MainActivity extends AppCompatActivity
 
     //----------------------------------------------------------------------------------------------
 
+    /*
+    *   This method is called when the activity is given back control after the opened activity closes
+    */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data)
     {
@@ -235,11 +264,27 @@ public class MainActivity extends AppCompatActivity
             switch (requestCode)
             {
                 case 1:
-                    BluetoothDevice device = (BluetoothDevice) data.getExtras().get("device");
-                    _connectDevice = new ConnectThread(device);
-                    _connectDevice.start();
+                    BluetoothDevice __connectDevice = (BluetoothDevice) data.getExtras().get("device");
+                    _connectedBluetoothDevice.add(__connectDevice);
+                    ConnectThread __newDevice = new ConnectThread(__connectDevice);
+                    __newDevice.start();
+                    _connectDevices.add(__newDevice);
                     break;
+                case 2:
+                    BluetoothDevice __disconnectDevice = (BluetoothDevice) data.getExtras().get("device");
+                    Toast.makeText(getApplicationContext(), "Device to be disconnected: " + __disconnectDevice.getName(), Toast.LENGTH_SHORT).show();
 
+                    for(ConnectThread __connectThread:_connectDevices)
+                    {
+                        Toast.makeText(getApplicationContext(), "Device found: " + __connectThread.get_device().getName(), Toast.LENGTH_SHORT).show();
+
+                        if(__connectThread.get_device().equals(__disconnectDevice))
+                        {
+                            closeConnection(__connectThread);
+                            _connectedBluetoothDevice.remove(__disconnectDevice);
+                            Toast.makeText(getApplicationContext(), "Device disconnected!", Toast.LENGTH_SHORT).show();
+                        }//end if
+                    }//end for loop
             }//end switch
         }//end if
     }//end onActivityResult
@@ -258,20 +303,23 @@ public class MainActivity extends AppCompatActivity
         //defining connection variables
         private final BluetoothSocket _socket;
 
+        private final BluetoothDevice _device;
+
         //the object that will manage communication with the bluetooth device
         ConnectedThread _managedCommunication;
 
-        public ConnectThread(BluetoothDevice device)
+        public ConnectThread(BluetoothDevice __device)
         {
             //Use a temporary object that is later assigned to mmSocket,
             //because mmSocket is final
             BluetoothSocket tmp = null;
+            _device = __device;
 
             //get a BluetoothSocket to connect with the given BluetoothDevice
             try
             {
                 // MY_UUID is the app's UUID string, also used by the server code
-                tmp = device.createRfcommSocketToServiceRecord(_UUID);
+                tmp = _device.createRfcommSocketToServiceRecord(_UUID);
             }//end try
             catch(IOException e)
             {
@@ -299,7 +347,6 @@ public class MainActivity extends AppCompatActivity
                 //Unable to connect; close the socket and get out
                 try
                 {
-                    Toast.makeText(getApplicationContext(), "Failed to connect!", Toast.LENGTH_SHORT).show();
                     _socket.close();
                 }//end try
                 catch (IOException closeException)
@@ -322,6 +369,16 @@ public class MainActivity extends AppCompatActivity
         {
             _managedCommunication.write(message.getBytes());
         }//end method send
+
+        //------------------------------------------------------------------------------------------
+
+        /*
+        *   method to return the bluetooth device connected
+        */
+        public BluetoothDevice get_device()
+        {
+            return _device;
+        }//end method get_device
 
         //------------------------------------------------------------------------------------------
 
