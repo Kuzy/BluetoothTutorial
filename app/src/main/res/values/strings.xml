@@ -6,4 +6,6 @@
     <string name="search_devices">Search Devices</string>
     <string name="turn_off">turn off</string>
     <string name="paired_devices">paired/searched devices:</string>
+
+    <string name="title_activity_deviceListActivity">Listing devices</string>
 </resources>

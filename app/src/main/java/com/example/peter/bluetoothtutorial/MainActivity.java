@@ -3,44 +3,26 @@ package com.example.peter.bluetoothtutorial;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity
 {
     private BluetoothAdapter _bluetoothAdapter;
-
-    //collection of bluetooth device objects
-    private ArrayList<BluetoothDevice> _bluetoothDevices;
-
-    //for displaying the list of devices to the user
-    private ArrayList<String> _listDiscoveredDevices;
-    private ArrayAdapter _listAdapter;
-
-    //support variables
-    private boolean _broadcastReceiverEnable = false;
 
     //Handler to get data from other threads
     private Handler _handler = null;
@@ -62,28 +44,10 @@ public class MainActivity extends AppCompatActivity
         //initialize the bluetooth adapter
         _bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
-        //initialize ArrayList for holding bluetooth objects
-        _bluetoothDevices = new ArrayList<>();
-
-
-        //possibility of getting null pointer exception
-        try
-        {
-            //prepare list for displaying devices found
-            ListView __lstDevices = (ListView)findViewById(R.id.listView);
-            _listDiscoveredDevices = new ArrayList<>();
-            _listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, _listDiscoveredDevices);
-            assert __lstDevices != null;
-            __lstDevices.setAdapter(_listAdapter);
-            __lstDevices.setOnCreateContextMenuListener(this);
-        }//end try
-        catch (NullPointerException npe)
-        {
-            npe.printStackTrace();
-        }//end catch
-
         //initialize handler and make it do something when another thread passes a message back
         _handler = new Handler(Looper.getMainLooper()){
+            TextView lblMessage = (TextView)findViewById(R.id.lblMessagesReceived);
+
             @Override
             public void handleMessage(Message __inputMessage)
             {
@@ -91,6 +55,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     case MESSAGE_RECEIVED:
                         Toast.makeText(getApplicationContext(), __inputMessage.obj.toString(), Toast.LENGTH_SHORT).show();
+                        lblMessage.append(__inputMessage.obj.toString() + "\n");
                         break;
                     default:
                         //let the program handle any other messages passed
@@ -169,179 +134,12 @@ public class MainActivity extends AppCompatActivity
 
     //----------------------------------------------------------------------------------------------
 
-    /*
-    *   lists all paired bluetooth devices
-    */
-    public void list()
-    {
-        //check if bluetooth adapter is turned on
-        if(_bluetoothAdapter.isEnabled())
-        {
-            //clear ArrayLists
-            _listDiscoveredDevices.clear();
-            _listAdapter.notifyDataSetChanged();
-            _bluetoothDevices.clear();
-
-            Toast.makeText(getApplicationContext(), "Listing paired devices...", Toast.LENGTH_LONG).show();
-            Set<BluetoothDevice> __pairedDevices = _bluetoothAdapter.getBondedDevices();
-
-            //iterate through all the Bluetooth devices paired with
-            for (BluetoothDevice __bt : __pairedDevices) {
-                _listDiscoveredDevices.add(__bt.getName());
-                _bluetoothDevices.add(__bt);
-            }//end for loop
-
-            _listAdapter.notifyDataSetChanged();
-        }//end if
-        else
-        {
-            Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
-        }//end else
-    }//end function list
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   handle devices that are discovered
-    */
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            //when discovery finds a device
-            if(BluetoothDevice.ACTION_FOUND.equals(action))
-            {
-                //get the bluetooth device object from the intent
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                _listDiscoveredDevices.add(device.getName() + "\n" + device.getAddress());
-                _listAdapter.notifyDataSetChanged();
-                _bluetoothDevices.add(device);
-            }//end if
-        }
-    };//end BroadcastReceiver
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   register Broadcast Receiver
-    */
-    public void registerBroadcastReceiver()
-    {
-        //Register the BroadcastReceiver
-        IntentFilter __filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, __filter);        //must unregister during onDestroy
-        _broadcastReceiverEnable = true;
-    }//end function startBroadcastReceiver
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   start discovery for nearby devices
-    */
-    public void startDiscovery()
-    {
-        //check if bluetooth adapter is turned on
-        if(_bluetoothAdapter.isEnabled())
-        {
-            //check that the broadcast receiver is started
-            if(!_broadcastReceiverEnable)
-            {
-                //broadcast receiver is not registered so we register it first
-                registerBroadcastReceiver();
-            }//end if
-
-            //clear the list
-            _listDiscoveredDevices.clear();
-            _listAdapter.notifyDataSetChanged();
-            _bluetoothDevices.clear();
-
-            Toast.makeText(getApplicationContext(), "Searching for devices...", Toast.LENGTH_LONG).show();
-
-            //start searching for bluetooth devices
-            _bluetoothAdapter.startDiscovery();
-        }//end if
-        else
-        {
-            Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
-        }//end else
-    }//end function startDiscovery
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   stop discovery for nearby devices
-     */
-    public void stopDiscovery()
-    {
-        //unregister broadcast receiver if enabled
-        if(_broadcastReceiverEnable)
-        {
-            unregisterReceiver(mReceiver);
-            _broadcastReceiverEnable = false;
-        }//end if
-    }//end function stopDiscovery
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *  ensuring resources are closed before app closes
-    */
-    @Override
-    protected void onDestroy()
-    {
-        stopDiscovery();
-
-        //ensure that the bluetooth adapter stopped searching for devices
-        //safe to use even when discovery is disabled
-        _bluetoothAdapter.cancelDiscovery();
-
-        super.onDestroy();
-    }//end function onDestroy
-
-    //----------------------------------------------------------------------------------------------
-
     /*Call this function to cancel connection with the device*/
     public void closeConnection(View v)
     {
         _connectDevice.cancel();
         _connectDevice = null;  //destroy reference to the device
     }//end function closeConnection
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   function to create a menu when a long press is detected on the list view
-    */
-    @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
-    {
-        super.onCreateContextMenu(menu, v, menuInfo);
-        menu.add(0,0,0,"Connect");
-    }//end function onCreateContextMenu
-
-    //----------------------------------------------------------------------------------------------
-
-    /*
-    *   action to be performed when an option is selected
-    */
-    @Override
-    public boolean onContextItemSelected(MenuItem item)
-    {
-        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-        int position = info.position;
-
-        switch (item.getItemId())
-        {
-            case 0:
-                stopDiscovery();
-                Toast.makeText(getApplicationContext(), "connecting to " + _bluetoothDevices.get(position).getName(), Toast.LENGTH_SHORT).show();
-                _connectDevice = new ConnectThread(_bluetoothDevices.get(position));
-                _connectDevice.start();
-                break;
-        }//end switch
-
-        return false;
-    }//end function onContextItemSelected
 
     //----------------------------------------------------------------------------------------------
 
@@ -369,25 +167,47 @@ public class MainActivity extends AppCompatActivity
     {
         boolean result = false;
 
+        //detect which option was selected if any
         switch(item.getItemId())
         {
-            case 0:
+            case 0:             //turn on bluetooth
                 on();
                 result = true;
                 break;
-            case 1:
+            case 1:            //turn off bluetooth
                 off();
                 result = true;
                 break;
-            case 2:
-                startDiscovery();
-                result = true;
+            case 2:            //search for nearby devices
+                //check if bluetooth adapter is turned on
+                if(_bluetoothAdapter.isEnabled())
+                {
+                    Intent searchIntent = new Intent(this, DeviceListActivity.class);
+                    searchIntent.putExtra("instruction", 1);
+                    startActivityForResult(searchIntent, 1);
+                    result = true;
+                }//end if
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+                }//end else
+
                 break;
-            case 3:
-                list();
-                result = true;
-                break;
-            case 4:
+            case 3:            //list all paired devices
+                //check if bluetooth adapter is turned on
+                if(_bluetoothAdapter.isEnabled())
+                {
+                    Intent listIntent = new Intent(this, DeviceListActivity.class);
+                    listIntent.putExtra("instruction", 2);
+                    startActivityForResult(listIntent, 1);
+                    result = true;
+                    break;
+                }//end if
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "Bluetooth must be enabled first!", Toast.LENGTH_LONG).show();
+                }//end else
+            case 4:           //make device visible
                 visible();
                 result = true;
                 break;
@@ -395,6 +215,26 @@ public class MainActivity extends AppCompatActivity
 
         return result;
     }//end function onOptionsItemSelected
+
+    //----------------------------------------------------------------------------------------------
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    {
+        if(resultCode == RESULT_OK)
+        {
+            //process the incoming request
+            switch (requestCode)
+            {
+                case 1:
+                    BluetoothDevice device = (BluetoothDevice) data.getExtras().get("device");
+                    _connectDevice = new ConnectThread(device);
+                    _connectDevice.start();
+                    break;
+
+            }//end switch
+        }//end if
+    }//end onActivityResult
 
     //----------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------
