@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,6 +48,7 @@ public class MainActivity extends AppCompatActivity
         //initialize handler and make it do something when another thread passes a message back
         _handler = new Handler(Looper.getMainLooper()){
             TextView lblMessage = (TextView)findViewById(R.id.lblMessagesReceived);
+            ScrollView scrollView = (ScrollView)findViewById(R.id.scrollTextView);
 
             @Override
             public void handleMessage(Message __inputMessage)
@@ -56,6 +58,12 @@ public class MainActivity extends AppCompatActivity
                     case MESSAGE_RECEIVED:
                         Toast.makeText(getApplicationContext(), __inputMessage.obj.toString(), Toast.LENGTH_SHORT).show();
                         lblMessage.append(__inputMessage.obj.toString() + "\n");
+                        scrollView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                scrollView.fullScroll(View.FOCUS_DOWN);
+                            }
+                        });
                         break;
                     default:
                         //let the program handle any other messages passed

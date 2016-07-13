@@ -9,8 +9,14 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.example.peter.bluetoothtutorial.MainActivity">
 
-    <TextView
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/lblMessagesReceived"/>
+        android:id="@+id/scrollTextView">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:singleLine="false"
+            android:id="@+id/lblMessagesReceived"/>
+    </ScrollView>
 </RelativeLayout>
